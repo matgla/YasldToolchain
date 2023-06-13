@@ -78,17 +78,20 @@ fi
      exit 1
  fi
  
- sudo make install
- if [[ $? -ne 0 ]] ; then
-     exit 1
- fi
+sudo make install
+if [[ $? -ne 0 ]] ; then
+    exit 1
+fi
 
- 
+export CFLAGS_FOR_TARGET="-g -Os -ffunction-sections -fdata-sections -fno-exceptions -msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
+export CXXFLAGS_FOR_TARGET=$CFLAGS_FOR_TARGET
+
 cd ..
 mkdir build-newlib
 cd build-newlib 
 ../newlib-$NEWLIB_VERSION/configure --target=$TARGET \
   --prefix=$PREFIX \
+  --with-pic \
   --disable-newlib-supplied-syscalls \
   --enable-newlib-reent-small \
   --enable-newlib-retargetable-locking \
@@ -116,15 +119,12 @@ if [[ $? -ne 0 ]] ; then
 fi
 
 
-cd ..
-cd gcc-$GCC_VERSION
+cd ../gcc-$GCC_VERSION
 mkdir -p build 
 cd build
-export CFLAGS_FOR_TARGET="-Os -ffunction-sections -fdata-sections -fno-exceptions -msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
-export CXXFLAGS_FOR_TARGET=$CFLAGS_FOR_TARGET
-
 ../configure --target=$TARGET \
   --prefix=$PREFIX \
+  --with-pic \
   --with-sysroot=$PREFIX/$TARGET \
   --libexecdir=$PREFIX/${TARGET}/lib \
   --with-native-system-header-dir=/include \
@@ -138,7 +138,7 @@ export CXXFLAGS_FOR_TARGET=$CFLAGS_FOR_TARGET
   --disable-libquadmath \
   --disable-libssp \
   --disable-nls \
-  --enable-shared \
+  --enable-shared=libgcc \
   --disable-threads \
   --disable-tls \
   --with-gnu-ld \
@@ -153,7 +153,6 @@ export CXXFLAGS_FOR_TARGET=$CFLAGS_FOR_TARGET
   --with-mpc \
   --with-libelf \
   --enable-gnu-indirect-function \
-  --with-host-libstdcxx='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm' \
   --with-pkgversion='Yasld Toolchain' \
   --with-multilib-list=rmprofile
 
