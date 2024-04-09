@@ -21,7 +21,7 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
 
 import subprocess
 import os
@@ -39,10 +39,7 @@ class GccRecipe(RecipeBase):
     def __init__(self, output_directory, prefix):
         super().__init__(
             name="gcc",
-            source="https://ftp.gnu.org/gnu/gcc/gcc-{version}/\
-gcc-{version}.tar.xz".format(
-                version=GccRecipe.gcc_version
-            ),
+            source="https://github.com/gcc-mirror/gcc/archive/refs/heads/master.zip",
             output=output_directory,
             sha=GccRecipe.sha256,
         )
@@ -52,7 +49,7 @@ gcc-{version}.tar.xz".format(
         self.env[
             "CFLAGS_FOR_TARGET"
         ] = "-g -Os -ffunction-sections -fdata-sections \
--msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
+"
 
         self.env["CXXFLAGS_FOR_TARGET"] = self.env["CFLAGS_FOR_TARGET"]
 
@@ -80,7 +77,6 @@ gcc-{version}.tar.xz".format(
             [
                 "--target={target}".format(target=GccRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--with-sysroot={prefix}/{target}".format(
                     prefix=self.prefix, target=GccRecipe.target
                 ),

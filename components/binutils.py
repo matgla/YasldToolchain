@@ -21,7 +21,7 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
 
 import subprocess
 
@@ -29,8 +29,8 @@ is_build_recipe = True
 
 
 class BinutilsRecipe(RecipeBase):
-    version = "2.41"
-    sha256 = "ae9a5789e23459e59606e6714723f2d3ffc31c03174191ef0d015bdf06007450"
+    version = "2.42"
+    sha256 = "f6e4d41fd5fc778b06b7891457b3620da5ecea1006c6a4a41ae998109f85a800"
     target = "arm-none-eabi"
 
     def __init__(self, output_directory, prefix):

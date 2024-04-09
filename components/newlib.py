@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 #
 # newlib.py
 #
@@ -21,7 +20,7 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
 
 import subprocess
 import os
@@ -30,8 +29,8 @@ is_build_recipe = True
 
 
 class NewlibRecipe(RecipeBase):
-    version = "4.3.0.20230120"
-    sha256 = "83a62a99af59e38eb9b0c58ed092ee24d700fff43a22c03e433955113ef35150"
+    version = "4.4.0.20231231"
+    sha256 = "0c166a39e1bf0951dfafcd68949fe0e4b6d3658081d6282f39aeefc6310f2f13"
     target = "arm-none-eabi"
 
     def __init__(self, output_directory, prefix):
@@ -48,7 +47,7 @@ class NewlibRecipe(RecipeBase):
         self.env[
             "CFLAGS_FOR_TARGET"
         ] = "-g -Os -ffunction-sections -fdata-sections \
--msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
+"
 
     def configure(self):
         self.sources_root = (
@@ -65,7 +64,6 @@ class NewlibRecipe(RecipeBase):
             [
                 "--target={target}".format(target=NewlibRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--disable-newlib-supplied-syscalls",
                 "--enable-newlib-reent-small",
                 "--enable-newlib-retargetable-locking",
@@ -97,7 +95,6 @@ class NewlibRecipe(RecipeBase):
             [
                 "--target={target}".format(target=NewlibRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--enable-newlib-io-long-long",
                 "--enable-newlib-io-c99-formats",
                 "--enable-newlib-register-fini",
