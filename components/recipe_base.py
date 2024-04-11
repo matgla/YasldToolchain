@@ -29,6 +29,7 @@ from pathlib import Path
 from hashlib import sha256
 from tqdm import tqdm
 import tarfile
+import zipfile
 
 is_build_recipe = False
 
@@ -84,12 +85,22 @@ class RecipeBase:
         print("")
 
     def _unpack_with_progress_bar(self, file, target):
-        with tarfile.open(name=file) as tar:
-            for member in tqdm(
-                iterable=tar.getmembers(), total=len(tar.getmembers())
-            ):
-                if not os.path.exists(Path(target) / member.path):
-                    tar.extract(member=member, path=target)
+        if str(file).lower().endswith(".zip"):
+            with zipfile.ZipFile(file) as zip:
+                for member in tqdm(
+                    zip.infolist()
+                ):
+                    if not os.path.exists(Path(target) / member.filename):
+                        zip.extract(member=member, path=target)
+
+        else:
+            with tarfile.open(name=file) as tar:
+                for member in tqdm(
+                    iterable=tar.getmembers(), total=len(tar.getmembers())
+                ):
+                    if not os.path.exists(Path(target) / member.path):
+                        tar.extract(member=member, path=target)
+
 
     def unpack(self):
         print(" - Extracting archive:", self.source_file)

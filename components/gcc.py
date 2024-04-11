@@ -32,8 +32,8 @@ is_build_recipe = True
 
 
 class GccRecipe(RecipeBase):
-    gcc_version = "13.2.0"
-    sha256 = "e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da"
+    gcc_version = "master"
+    sha256 = "d29702511c4099e97374c1c45bf2fdfe974a7ba2a3d09fc9bbed586bca21379a"
     target = "arm-none-eabi"
 
     def __init__(self, output_directory, prefix):
@@ -72,6 +72,7 @@ class GccRecipe(RecipeBase):
 
     def configure(self):
         print(" - Configure:", self.sources_root)
+
         args = ["../configure"]
         args.extend(
             [
@@ -116,6 +117,19 @@ class GccRecipe(RecipeBase):
                 "--with-multilib-list=rmprofile",
             ]
         )
+        print(" - Fixing permissions ")
+        result = subprocess.run(
+            "chmod +x ../configure ../install-sh ../move-if-change ../libgcc/mkheader.sh",
+            shell=True,
+            cwd=self.build_directory,
+            env=self.env,
+        )
+
+
+        print(
+            " - Configure for nano called with:", subprocess.list2cmdline(args)
+        )
+
         print(" - Configure called with:", subprocess.list2cmdline(args))
         if not os.path.exists(self.build_directory / ".configure_done"):
             result = subprocess.run(
