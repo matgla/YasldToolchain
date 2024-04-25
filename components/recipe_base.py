@@ -30,6 +30,7 @@ from hashlib import sha256
 from tqdm import tqdm
 import tarfile
 import zipfile
+import subprocess
 
 is_build_recipe = False
 
@@ -52,6 +53,10 @@ class RecipeBase:
             self.download_directory = self.sources_directory / "download"
         else:
             raise RuntimeError("'output' path must be provided")
+        if "skip_verification" in kwargs:
+            self.skip_verification = kwargs["skip_verification"]
+        else:
+            self.skip_verification = False
 
     def _calculate_hash(self, filepath):
         hash = sha256()
@@ -70,7 +75,7 @@ class RecipeBase:
             if self.sha is None:
                 print("     file already fetched")
                 return
-            else:
+            elif not self.skip_verification:
                 calculated_sha = self._calculate_hash(self.source_file)
                 if calculated_sha == self.sha:
                     print("     file already fetched")
@@ -79,10 +84,11 @@ class RecipeBase:
                     print("     SHA256 doesn't match, file be fetched again")
                     print("       Expected  :", self.sha)
                     print("       Calculated:", calculated_sha)
+            else:
+                return
             os.remove(self.source_file)
 
         wget.download(str(self.source), str(self.source_file))
-        print("")
 
     def _unpack_with_progress_bar(self, file, target):
         if str(file).lower().endswith(".zip"):
@@ -104,13 +110,14 @@ class RecipeBase:
 
     def unpack(self):
         print(" - Extracting archive:", self.source_file)
-        calculated_sha = self._calculate_hash(self.source_file)
-        if calculated_sha != self.sha:
-            print("     SHA256 doesn't match, aborting...")
-            print("       Expected  :", self.sha)
-            print("       Calculated:", calculated_sha)
+        if not self.skip_verification: 
+            calculated_sha = self._calculate_hash(self.source_file)
+            if calculated_sha != self.sha:
+                print("     SHA256 doesn't match, aborting...")
+                print("       Expected  :", self.sha)
+                print("       Calculated:", calculated_sha)
 
-            sys.exit(-1)
+                sys.exit(-1)
 
         self._unpack_with_progress_bar(
             self.source_file, self.sources_directory / self.name
@@ -125,9 +132,30 @@ class RecipeBase:
     def install(self):
         raise RuntimeError("Called install from base class")
 
+    def patch(self):
+        pass 
+
+    def do_patches(self, package_directory):
+        patches_directory = Path(__file__).parent.parent / "patches" / self.name
+        if os.path.exists(patches_directory): 
+            print(" - Checking patches inside: " + str(patches_directory))
+            for filename in os.listdir(patches_directory):
+                done_flag_file = Path(self.output) / (Path(filename).stem + "_patch_done")
+                if not done_flag_file.exists():
+                    patch_file = patches_directory / filename
+                    source_directory = Path(__file__).parent.parent / package_directory
+                    print(" - Patching '{}' with: {} (cwd = {})".format(self.name, patch_file, source_directory))
+
+                    result = subprocess.run("patch -p1 < " + str(patch_file), shell=True, cwd=source_directory)
+                    assert result.returncode == 0
+                    done_flag_file.touch()
+
+                
+
     def build(self):
         self.fetch()
         self.unpack()
+        self.patch()
         self.configure()
         self.compile()
         self.install()

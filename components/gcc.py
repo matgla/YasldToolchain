@@ -36,12 +36,13 @@ class GccRecipe(RecipeBase):
     sha256 = "d29702511c4099e97374c1c45bf2fdfe974a7ba2a3d09fc9bbed586bca21379a"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="gcc",
             source="https://github.com/gcc-mirror/gcc/archive/refs/heads/master.zip",
             output=output_directory,
             sha=GccRecipe.sha256,
+            skip_verification=skip_verification
         )
         self.prefix = prefix
 
@@ -69,6 +70,9 @@ class GccRecipe(RecipeBase):
         self.nano_build_directory.mkdir(parents=True, exist_ok=True)
         self.build_directory = self.sources_root / "build"
         self.build_directory.mkdir(parents=True, exist_ok=True)
+
+    def patch(self):
+        self.do_patches(self.sources_root)
 
     def configure(self):
         print(" - Configure:", self.sources_root)
@@ -221,8 +225,8 @@ class GccRecipe(RecipeBase):
         subprocess.run("make install", shell=True, cwd=self.build_directory)
 
 
-def get_recipe(output_directory, prefix):
-    return GccRecipe(output_directory, prefix)
+def get_recipe(output_directory, prefix, skip_verification):
+    return GccRecipe(output_directory, prefix, skip_verification)
 
 
 dependencies = ["newlib"]

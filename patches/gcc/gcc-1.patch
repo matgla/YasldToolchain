@@ -1,0 +1,99 @@
+diff --git a/gcc/cp/module.cc b/gcc/cp/module.cc
+index 4e91fa6e052..9f4c604d0f0 100644
+--- a/gcc/cp/module.cc
++++ b/gcc/cp/module.cc
+@@ -13063,14 +13063,22 @@ depset::hash::add_partial_entities (vec<tree, va_gc> *partial_classes)
+       depset *dep = make_dependency (inner, depset::EK_DECL);
+ 
+       if (dep->get_entity_kind () == depset::EK_REDIRECT)
+-	/* We should have recorded the template as a partial
+-	   specialization.  */
+-	gcc_checking_assert (dep->deps[0]->get_entity_kind ()
+-			     == depset::EK_PARTIAL);
++	{
++	  dep = dep->deps[0];
++	  /* We should have recorded the template as a partial
++	     specialization.  */
++	  gcc_checking_assert (dep->get_entity_kind ()
++			       == depset::EK_PARTIAL);
++	}
+       else
+ 	/* It was an explicit specialization, not a partial one.  */
+ 	gcc_checking_assert (dep->get_entity_kind ()
+ 			     == depset::EK_SPECIALIZATION);
++
++      /* Only emit GMF entities if reached.  */
++      if (!DECL_LANG_SPECIFIC (inner)
++	  || !DECL_MODULE_PURVIEW_P (inner))
++	dep->set_flag_bit<DB_UNREACHED_BIT> ();
+     }
+ }
+ 
+@@ -13092,6 +13100,11 @@ depset::hash::add_class_entities (vec<tree, va_gc> *class_members)
+       /* Only non-instantiations need marking as members.  */
+       if (dep->get_entity_kind () == EK_DECL)
+ 	dep->set_flag_bit <DB_IS_MEMBER_BIT> ();
++
++      /* Only emit GMF entities if reached.  */
++      if (!DECL_LANG_SPECIFIC (STRIP_TEMPLATE (defn))
++	  || !DECL_MODULE_PURVIEW_P (STRIP_TEMPLATE (defn)))
++	dep->set_flag_bit<DB_UNREACHED_BIT> ();
+     }
+ }
+ 
+@@ -13393,29 +13406,32 @@ depset::hash::find_dependencies (module_state *module)
+ 		  && !DECL_UNINSTANTIATED_TEMPLATE_FRIEND_P (decl))
+ 		/* Mark all the explicit & partial specializations as
+ 		   reachable.  */
+-		for (tree cons = DECL_TEMPLATE_INSTANTIATIONS (decl);
+-		     cons; cons = TREE_CHAIN (cons))
+-		  {
+-		    tree spec = TREE_VALUE (cons);
+-		    if (TYPE_P (spec))
+-		      spec = TYPE_NAME (spec);
+-		    int use_tpl;
+-		    node_template_info (spec, use_tpl);
+-		    if (use_tpl & 2)
+-		      {
+-			depset *spec_dep = find_dependency (spec);
+-			if (spec_dep->get_entity_kind () == EK_REDIRECT)
+-			  spec_dep = spec_dep->deps[0];
+-			if (spec_dep->is_unreached ())
+-			  {
+-			    reached_unreached = true;
+-			    spec_dep->clear_flag_bit<DB_UNREACHED_BIT> ();
+-			    dump (dumper::DEPEND)
+-			      && dump ("Reaching unreached specialization"
+-				       " %C:%N", TREE_CODE (spec), spec);
+-			  }
+-		      }
+-		  }
++		for (int i = 0; i < 2; ++i)
++		  for (tree cons = (i == 0
++				    ? DECL_TEMPLATE_INSTANTIATIONS (decl)
++				    : DECL_TEMPLATE_SPECIALIZATIONS (decl));
++		       cons; cons = TREE_CHAIN (cons))
++		    {
++		      tree spec = TREE_VALUE (cons);
++		      if (TYPE_P (spec))
++			spec = TYPE_NAME (spec);
++		      int use_tpl;
++		      node_template_info (spec, use_tpl);
++		      if (use_tpl & 2)
++			{
++			  depset *spec_dep = find_dependency (spec);
++			  if (spec_dep->get_entity_kind () == EK_REDIRECT)
++			    spec_dep = spec_dep->deps[0];
++			  if (spec_dep->is_unreached ())
++			    {
++			      reached_unreached = true;
++			      spec_dep->clear_flag_bit<DB_UNREACHED_BIT> ();
++			      dump (dumper::DEPEND)
++				&& dump ("Reaching unreached specialization"
++					 " %C:%N", TREE_CODE (spec), spec);
++			    }
++			}
++		    }
+ 
+ 	      dump.outdent ();
+ 	      current = NULL;

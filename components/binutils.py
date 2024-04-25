@@ -33,7 +33,7 @@ class BinutilsRecipe(RecipeBase):
     sha256 = "f6e4d41fd5fc778b06b7891457b3620da5ecea1006c6a4a41ae998109f85a800"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="binutils",
             source="https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz".format(
@@ -41,6 +41,7 @@ class BinutilsRecipe(RecipeBase):
             ),
             output=output_directory,
             sha=BinutilsRecipe.sha256,
+            skip_verification=skip_verification
         )
 
         self.prefix = prefix
@@ -97,5 +98,5 @@ class BinutilsRecipe(RecipeBase):
         subprocess.run("make install", shell=True, cwd=self.build_directory)
 
 
-def get_recipe(output_directory, prefix):
-    return BinutilsRecipe(output_directory, prefix)
+def get_recipe(output_directory, prefix, skip_verification):
+    return BinutilsRecipe(output_directory, prefix, skip_verification)

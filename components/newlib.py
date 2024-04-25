@@ -33,7 +33,7 @@ class NewlibRecipe(RecipeBase):
     sha256 = "0c166a39e1bf0951dfafcd68949fe0e4b6d3658081d6282f39aeefc6310f2f13"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="newlib",
             source="https://sourceware.org/pub/newlib/newlib-{version}.tar.gz".format(
@@ -41,6 +41,7 @@ class NewlibRecipe(RecipeBase):
             ),
             output=output_directory,
             sha=NewlibRecipe.sha256,
+            skip_verification=skip_verification
         )
         self.prefix = prefix
         self.env = os.environ.copy()
@@ -143,5 +144,5 @@ class NewlibRecipe(RecipeBase):
         )
 
 
-def get_recipe(output_directory, prefix):
-    return NewlibRecipe(output_directory, prefix)
+def get_recipe(output_directory, prefix, skip_verification):
+    return NewlibRecipe(output_directory, prefix, skip_verification)
