@@ -22,8 +22,10 @@
 
 
 from components.recipe_base import RecipeBase
+from sys import platform 
 
 import subprocess
+import os
 
 is_build_recipe = True
 
@@ -55,11 +57,19 @@ class BinutilsRecipe(RecipeBase):
         self.build_directory = self.sources_root / "build"
         self.build_directory.mkdir(parents=True, exist_ok=True)
 
-        subprocess.run(
-            'sed -i "/ac_cpp=/s/\\$CPPFLAGS/\\$CPPFLAGS -O2/',
+        if platform == "darwin":
+            command = "gsed"
+        else:
+            command = "sed"
+        command += ' -i "/ac_cpp=/s/\\$CPPFLAGS/\\$CPPFLAGS -O2 -Wno-c++11-narrowing/" libiberty/configure' 
+        print(" - Fixing cppflags in binutils: ", command) 
+        result = subprocess.run(
+            command,
             shell=True,
             cwd=self.sources_root,
         )
+        assert result.returncode == 0
+
 
         args = ["../configure"]
         args.extend(
@@ -82,19 +92,35 @@ class BinutilsRecipe(RecipeBase):
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
-            subprocess.list2cmdline(args), shell=True, cwd=self.build_directory
+        self.env = os.environ.copy()
+        self.env[
+            "CXXFLAGS"
+        ] = "-O2 -std=c++11"
+
+        result = subprocess.run(
+            subprocess.list2cmdline(args), 
+            shell=True, 
+            cwd=self.build_directory,
+            env=self.env
         )
+        assert result.returncode == 0
+
 
     def compile(self):
-        subprocess.run(
+        result = subprocess.run(
             "make -j$(nproc)",
             shell=True,
             cwd=self.build_directory,
         )
+        assert result.returncode == 0
+
+
 
     def install(self):
-        subprocess.run("make install", shell=True, cwd=self.build_directory)
+        result = subprocess.run("make install", shell=True, cwd=self.build_directory)
+        assert result.returncode == 0
+
+
 
 
 def get_recipe(output_directory, prefix):

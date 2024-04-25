@@ -29,7 +29,7 @@ import importlib
 import importlib.util
 import subprocess
 import glob
-
+from sys import platform
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -114,8 +114,8 @@ def print_options(components, args):
 
 
 def build_component(component, output_directory, prefix):
-    if os.path.exists(Path(output_directory) / (component + "_done")):
-        return
+    # if os.path.exists(Path(output_directory) / (component + "_done")):
+    #     return
 
     recipe = load_recipe(component, components_directory / (component + ".py"))
 
@@ -142,10 +142,14 @@ def process_components(components, output_directory):
 
 
 def strip_toolchain(output_directory):
+    if platform == "darwin":
+        cmd = "find " + str(output_directory) + "/bin -type f -and \\( -perm +111 \\) -exec strip '{}' \\;"
+    else: 
+        cmd = "find " + str(output_directory) + "/bin -type f -and \\( -executable \\) -exec strip '{}' \\;"
+
+    print("Stripping with command: ", cmd)
     result = subprocess.run(
-        "find "
-        + str(output_directory)
-        + "/bin -type f -and \( -executable \) -exec strip '{}' \;",
+        cmd,
         shell=True,
     )
 

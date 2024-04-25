@@ -126,8 +126,8 @@ class RecipeBase:
         raise RuntimeError("Called install from base class")
 
     def build(self):
-        self.fetch()
-        self.unpack()
-        self.configure()
-        self.compile()
+        # self.fetch()
+        # self.unpack()
+        # self.configure()
+        # self.compile()
         self.install()

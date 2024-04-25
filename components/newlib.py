@@ -25,6 +25,8 @@ from components.recipe_base import RecipeBase
 import subprocess
 import os
 
+from pathlib import Path
+
 is_build_recipe = True
 
 
@@ -49,17 +51,21 @@ class NewlibRecipe(RecipeBase):
         ] = "-g -Os -ffunction-sections -fdata-sections \
 "
 
-    def configure(self):
         self.sources_root = (
             self.sources_directory
             / self.name
             / "newlib-{version}".format(version=NewlibRecipe.version)
         )
-        print(" - Configure:", self.sources_root)
+ 
         self.nano_build_directory = self.sources_root / "build-nano"
-        self.nano_build_directory.mkdir(parents=True, exist_ok=True)
+        self.full_build_directory = self.sources_root / "build-full"
 
+    def configure(self):
+        print(" - Configure:", self.sources_root)
         args = ["../configure"]
+
+        self.nano_build_directory.mkdir(parents=True, exist_ok=True)
+        
         args.extend(
             [
                 "--target={target}".format(target=NewlibRecipe.target),
@@ -80,14 +86,14 @@ class NewlibRecipe(RecipeBase):
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
+        result = subprocess.run(
             subprocess.list2cmdline(args),
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
 
-        self.full_build_directory = self.sources_root / "build-full"
         self.full_build_directory.mkdir(parents=True, exist_ok=True)
 
         args = ["../configure"]
@@ -105,20 +111,23 @@ class NewlibRecipe(RecipeBase):
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
+        result = subprocess.run(
             subprocess.list2cmdline(args),
             shell=True,
             cwd=self.full_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
+
 
     def compile(self):
-        subprocess.run(
+        result = subprocess.run(
             "make -j$(nproc)",
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
 
         subprocess.run(
             "make -j$(nproc)",
@@ -126,21 +135,28 @@ class NewlibRecipe(RecipeBase):
             cwd=self.full_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
+
 
     def install(self):
-        subprocess.run(
+        result = subprocess.run(
             "make install", shell=True, cwd=self.nano_build_directory
         )
-        subprocess.run(
-            'find "{prefix}" -regex ".*/lib\(c\|g\|rdimon\)\.a" -exec rename .a _nano.a \'{braces}\' \;'.format(
-                prefix=self.prefix, braces="{}"
-            ),
-            shell=True,
-            cwd=self.nano_build_directory,
-        )
-        subprocess.run(
+        assert result.returncode == 0
+
+        print(" - Rename library to nano")
+        for path, _, files in os.walk(self.prefix):
+            for file in files:
+                p = Path(path)/file
+                r = str(p).replace(".a", "_nano.a")
+                if "libc.a" in str(p) or "libg.a" in str(p) or "librdimon.a" in str(p):
+                    os.rename(p, r)
+
+        result = subprocess.run(
             "make install", shell=True, cwd=self.full_build_directory
         )
+        assert result.returncode == 0
+
 
 
 def get_recipe(output_directory, prefix):

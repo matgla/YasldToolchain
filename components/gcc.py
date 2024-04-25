@@ -33,7 +33,7 @@ is_build_recipe = True
 
 class GccRecipe(RecipeBase):
     gcc_version = "master"
-    sha256 = "d29702511c4099e97374c1c45bf2fdfe974a7ba2a3d09fc9bbed586bca21379a"
+    sha256 = "f2214c3bae925fbf5559b708c354130e98cda4e7fbcfb63043ce43757b675833"
     target = "arm-none-eabi"
 
     def __init__(self, output_directory, prefix):
@@ -106,10 +106,10 @@ class GccRecipe(RecipeBase):
                     prefix=self.prefix, target=GccRecipe.target
                 ),
                 "--with-python-dir=share/gcc-arm-none-eabi",
-                "--with-gmp",
-                "--with-mpfr",
+                # "--with-gmp",
+                # "--with-mpfr",
                 "--with-isl",
-                "--with-mpc",
+                # "--with-mpc",
                 "--with-libelf",
                 "--enable-gnu-indirect-function",
                 "--with-host-libstdc++='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm'"
@@ -119,16 +119,21 @@ class GccRecipe(RecipeBase):
         )
         print(" - Fixing permissions ")
         result = subprocess.run(
-            "chmod +x ../configure ../install-sh ../move-if-change ../libgcc/mkheader.sh",
+            "chmod +x ../configure ../install-sh ../move-if-change ../libgcc/mkheader.sh ../contrib/download_prerequisites",
             shell=True,
             cwd=self.build_directory,
             env=self.env,
         )
 
-
-        print(
-            " - Configure for nano called with:", subprocess.list2cmdline(args)
+        print(self.sources_directory)
+        result = subprocess.run(
+            "contrib/download_prerequisites",
+            shell=True,
+            cwd=self.sources_root,
+            env=self.env,
         )
+        
+        assert result.returncode == 0
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
         if not os.path.exists(self.build_directory / ".configure_done"):
@@ -159,7 +164,7 @@ class GccRecipe(RecipeBase):
 
     def compile(self):
         result = subprocess.run(
-            'make -j$(nproc) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
+            'make -j4 INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
             shell=True,
             cwd=self.build_directory,
             env=self.env,
@@ -168,7 +173,7 @@ class GccRecipe(RecipeBase):
         assert result.returncode == 0
 
         result = subprocess.run(
-            'make -j$(nproc) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
+            'make -j4 INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env_nano,
@@ -178,6 +183,9 @@ class GccRecipe(RecipeBase):
 
     def install(self):
         print("Installing GCC nano libraries")
+
+        subprocess.run("make install", shell=True, cwd=self.build_directory)
+        
         result = subprocess.run(
             "./gcc/gcc-cross -print-multi-lib",
             shell=True,
@@ -218,7 +226,6 @@ class GccRecipe(RecipeBase):
                 shutil.copyfile(source_libsupcpp, target / "libsupc++_nano.a")
                 break
 
-        subprocess.run("make install", shell=True, cwd=self.build_directory)
 
 
 def get_recipe(output_directory, prefix):
