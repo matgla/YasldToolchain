@@ -29,7 +29,7 @@ import importlib
 import importlib.util
 import subprocess
 import glob
-
+from sys import platform
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -65,6 +65,13 @@ def parse_arguments():
         "--show-components",
         action="store_true",
         help="Show components available to build",
+    )
+    parser.add_argument(
+        "-n",
+        "--no-verify",
+        default=False,
+        action="store_true",
+        help="Scripts components verification, i.e. for building from master"
     )
 
     args, _ = parser.parse_known_args()
@@ -113,7 +120,7 @@ def print_options(components, args):
     print(" - components:       ", components)
 
 
-def build_component(component, output_directory, prefix):
+def build_component(component, output_directory, prefix, skip_verification):
     if os.path.exists(Path(output_directory) / (component + "_done")):
         return
 
@@ -128,24 +135,28 @@ def build_component(component, output_directory, prefix):
     else:
         if hasattr(recipe, "dependencies"):
             for dependency in recipe.dependencies:
-                build_component(dependency, output_directory, prefix)
+                build_component(dependency, output_directory, prefix, skip_verification)
 
-        recipe.get_recipe(output_directory, prefix).build()
+        recipe.get_recipe(output_directory, prefix, skip_verification).build()
         # If finished everything was built correctly
         (Path(output_directory) / (component + "_done")).touch()
 
 
-def process_components(components, output_directory):
+def process_components(components, output_directory, skip_verification):
     prefix = (Path(output_directory) / "yasld-toolchain").resolve()
     for component in components:
-        build_component(component, output_directory, prefix)
+        build_component(component, output_directory, prefix, skip_verification)
 
 
 def strip_toolchain(output_directory):
+    if platform == "darwin":
+        cmd = "find " + str(output_directory) + "/bin -type f -and \\( -perm +111 \\) -exec strip '{}' \\;"
+    else: 
+        cmd = "find " + str(output_directory) + "/bin -type f -and \\( -executable \\) -exec strip '{}' \\;"
+
+    print("Stripping with command: ", cmd)
     result = subprocess.run(
-        "find "
-        + str(output_directory)
-        + "/bin -type f -and \( -executable \) -exec strip '{}' \;",
+        cmd,
         shell=True,
     )
 
@@ -172,7 +183,7 @@ def main():
     (Path(args.build_dir) / "sources" / "download").mkdir(
         parents=True, exist_ok=True
     )
-    process_components(components, args.build_dir)
+    process_components(components, args.build_dir, args.no_verify)
     strip_toolchain(Path(args.build_dir) / "yasld-toolchain")
 
 

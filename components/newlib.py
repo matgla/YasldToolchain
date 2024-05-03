@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 #
 # newlib.py
 #
@@ -21,20 +20,22 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
 
 import subprocess
 import os
+
+from pathlib import Path
 
 is_build_recipe = True
 
 
 class NewlibRecipe(RecipeBase):
-    version = "4.3.0.20230120"
-    sha256 = "83a62a99af59e38eb9b0c58ed092ee24d700fff43a22c03e433955113ef35150"
+    version = "4.4.0.20231231"
+    sha256 = "0c166a39e1bf0951dfafcd68949fe0e4b6d3658081d6282f39aeefc6310f2f13"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="newlib",
             source="https://sourceware.org/pub/newlib/newlib-{version}.tar.gz".format(
@@ -42,6 +43,7 @@ class NewlibRecipe(RecipeBase):
             ),
             output=output_directory,
             sha=NewlibRecipe.sha256,
+            skip_verification=skip_verification
         )
         self.prefix = prefix
         self.env = os.environ.copy()
@@ -50,22 +52,25 @@ class NewlibRecipe(RecipeBase):
         ] = "-g -Os -ffunction-sections -fdata-sections \
 -msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
 
-    def configure(self):
         self.sources_root = (
             self.sources_directory
             / self.name
             / "newlib-{version}".format(version=NewlibRecipe.version)
         )
-        print(" - Configure:", self.sources_root)
+ 
         self.nano_build_directory = self.sources_root / "build-nano"
-        self.nano_build_directory.mkdir(parents=True, exist_ok=True)
+        self.full_build_directory = self.sources_root / "build-full"
 
+    def configure(self):
+        print(" - Configure:", self.sources_root)
         args = ["../configure"]
+
+        self.nano_build_directory.mkdir(parents=True, exist_ok=True)
+        
         args.extend(
             [
                 "--target={target}".format(target=NewlibRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--disable-newlib-supplied-syscalls",
                 "--enable-newlib-reent-small",
                 "--enable-newlib-retargetable-locking",
@@ -78,18 +83,19 @@ class NewlibRecipe(RecipeBase):
                 "--enable-newlib-global-atexit",
                 "--enable-newlib-nano-formatted-io",
                 "--disable-nls",
+                "--with-pic",
             ]
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
+        result = subprocess.run(
             subprocess.list2cmdline(args),
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
 
-        self.full_build_directory = self.sources_root / "build-full"
         self.full_build_directory.mkdir(parents=True, exist_ok=True)
 
         args = ["../configure"]
@@ -97,31 +103,34 @@ class NewlibRecipe(RecipeBase):
             [
                 "--target={target}".format(target=NewlibRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--enable-newlib-io-long-long",
                 "--enable-newlib-io-c99-formats",
                 "--enable-newlib-register-fini",
                 "--enable-newlib-retargetable-locking",
                 "--disable-newlib-supplied-syscalls",
                 "--disable-nls",
+                "--with-pic",
             ]
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
+        result = subprocess.run(
             subprocess.list2cmdline(args),
             shell=True,
             cwd=self.full_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
+
 
     def compile(self):
-        subprocess.run(
+        result = subprocess.run(
             "make -j$(nproc)",
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
 
         subprocess.run(
             "make -j$(nproc)",
@@ -129,22 +138,29 @@ class NewlibRecipe(RecipeBase):
             cwd=self.full_build_directory,
             env=self.env,
         )
+        assert result.returncode == 0
+
 
     def install(self):
-        subprocess.run(
+        result = subprocess.run(
             "make install", shell=True, cwd=self.nano_build_directory
         )
-        subprocess.run(
-            'find "{prefix}" -regex ".*/lib\(c\|g\|rdimon\)\.a" -exec rename .a _nano.a \'{braces}\' \;'.format(
-                prefix=self.prefix, braces="{}"
-            ),
-            shell=True,
-            cwd=self.nano_build_directory,
-        )
-        subprocess.run(
+        assert result.returncode == 0
+
+        print(" - Rename library to nano")
+        for path, _, files in os.walk(self.prefix):
+            for file in files:
+                p = Path(path)/file
+                r = str(p).replace(".a", "_nano.a")
+                if "libc.a" in str(p) or "libg.a" in str(p) or "librdimon.a" in str(p):
+                    os.rename(p, r)
+
+        result = subprocess.run(
             "make install", shell=True, cwd=self.full_build_directory
         )
+        assert result.returncode == 0
 
 
-def get_recipe(output_directory, prefix):
-    return NewlibRecipe(output_directory, prefix)
+
+def get_recipe(output_directory, prefix, skip_verification):
+    return NewlibRecipe(output_directory, prefix, skip_verification)

@@ -21,19 +21,21 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
+from sys import platform 
 
 import subprocess
+import os
 
 is_build_recipe = True
 
 
 class BinutilsRecipe(RecipeBase):
-    version = "2.41"
-    sha256 = "ae9a5789e23459e59606e6714723f2d3ffc31c03174191ef0d015bdf06007450"
+    version = "2.42"
+    sha256 = "f6e4d41fd5fc778b06b7891457b3620da5ecea1006c6a4a41ae998109f85a800"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="binutils",
             source="https://ftp.gnu.org/gnu/binutils/binutils-{version}.tar.xz".format(
@@ -41,6 +43,7 @@ class BinutilsRecipe(RecipeBase):
             ),
             output=output_directory,
             sha=BinutilsRecipe.sha256,
+            skip_verification=skip_verification
         )
 
         self.prefix = prefix
@@ -55,11 +58,19 @@ class BinutilsRecipe(RecipeBase):
         self.build_directory = self.sources_root / "build"
         self.build_directory.mkdir(parents=True, exist_ok=True)
 
-        subprocess.run(
-            'sed -i "/ac_cpp=/s/\\$CPPFLAGS/\\$CPPFLAGS -O2/',
+        if platform == "darwin":
+            command = "gsed"
+        else:
+            command = "sed"
+        command += ' -i "/ac_cpp=/s/\\$CPPFLAGS/\\$CPPFLAGS -O2 -Wno-c++11-narrowing/" libiberty/configure' 
+        print(" - Fixing cppflags in binutils: ", command) 
+        result = subprocess.run(
+            command,
             shell=True,
             cwd=self.sources_root,
         )
+        assert result.returncode == 0
+
 
         args = ["../configure"]
         args.extend(
@@ -82,20 +93,36 @@ class BinutilsRecipe(RecipeBase):
         )
 
         print(" - Configure called with:", subprocess.list2cmdline(args))
-        subprocess.run(
-            subprocess.list2cmdline(args), shell=True, cwd=self.build_directory
+        self.env = os.environ.copy()
+        self.env[
+            "CXXFLAGS"
+        ] = "-O2 -std=c++11"
+
+        result = subprocess.run(
+            subprocess.list2cmdline(args), 
+            shell=True, 
+            cwd=self.build_directory,
+            env=self.env
         )
+        assert result.returncode == 0
+
 
     def compile(self):
-        subprocess.run(
+        result = subprocess.run(
             "make -j$(nproc)",
             shell=True,
             cwd=self.build_directory,
         )
+        assert result.returncode == 0
+
+
 
     def install(self):
-        subprocess.run("make install", shell=True, cwd=self.build_directory)
+        result = subprocess.run("make install", shell=True, cwd=self.build_directory)
+        assert result.returncode == 0
 
 
-def get_recipe(output_directory, prefix):
-    return BinutilsRecipe(output_directory, prefix)
+
+
+def get_recipe(output_directory, prefix, skip_verification):
+    return BinutilsRecipe(output_directory, prefix, skip_verification)

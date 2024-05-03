@@ -21,7 +21,7 @@
 #
 
 
-from recipe_base import RecipeBase
+from components.recipe_base import RecipeBase
 
 import subprocess
 import os
@@ -36,15 +36,15 @@ class GccRecipe(RecipeBase):
     sha256 = "e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da"
     target = "arm-none-eabi"
 
-    def __init__(self, output_directory, prefix):
+    def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="gcc",
-            source="https://ftp.gnu.org/gnu/gcc/gcc-{version}/\
-gcc-{version}.tar.xz".format(
+            source=https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz".format(
                 version=GccRecipe.gcc_version
             ),
             output=output_directory,
             sha=GccRecipe.sha256,
+            skip_verification=skip_verification
         )
         self.prefix = prefix
 
@@ -73,14 +73,17 @@ gcc-{version}.tar.xz".format(
         self.build_directory = self.sources_root / "build"
         self.build_directory.mkdir(parents=True, exist_ok=True)
 
+    def patch(self):
+        self.do_patches(self.sources_root)
+
     def configure(self):
         print(" - Configure:", self.sources_root)
+
         args = ["../configure"]
         args.extend(
             [
                 "--target={target}".format(target=GccRecipe.target),
                 "--prefix={prefix}".format(prefix=self.prefix),
-                "--with-pic",
                 "--with-sysroot={prefix}/{target}".format(
                     prefix=self.prefix, target=GccRecipe.target
                 ),
@@ -88,6 +91,7 @@ gcc-{version}.tar.xz".format(
                 "--libexecdir={prefix}/{target}/lib".format(
                     prefix=self.prefix, target=GccRecipe.target
                 ),
+                "--with-pic",
                 "--enable-languages=c,c++",
                 "--enable-plugins",
                 "--disable-decimal-float",
@@ -109,10 +113,10 @@ gcc-{version}.tar.xz".format(
                     prefix=self.prefix, target=GccRecipe.target
                 ),
                 "--with-python-dir=share/gcc-arm-none-eabi",
-                "--with-gmp",
-                "--with-mpfr",
+                # "--with-gmp",
+                # "--with-mpfr",
                 "--with-isl",
-                "--with-mpc",
+                # "--with-mpc",
                 "--with-libelf",
                 "--enable-gnu-indirect-function",
                 "--with-host-libstdc++='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm'"
@@ -120,6 +124,24 @@ gcc-{version}.tar.xz".format(
                 "--with-multilib-list=rmprofile",
             ]
         )
+        print(" - Fixing permissions ")
+        result = subprocess.run(
+            "chmod +x ../configure ../install-sh ../move-if-change ../libgcc/mkheader.sh ../contrib/download_prerequisites",
+            shell=True,
+            cwd=self.build_directory,
+            env=self.env,
+        )
+
+        print(self.sources_directory)
+        result = subprocess.run(
+            "contrib/download_prerequisites",
+            shell=True,
+            cwd=self.sources_root,
+            env=self.env,
+        )
+        
+        assert result.returncode == 0
+
         print(" - Configure called with:", subprocess.list2cmdline(args))
         if not os.path.exists(self.build_directory / ".configure_done"):
             result = subprocess.run(
@@ -168,6 +190,9 @@ gcc-{version}.tar.xz".format(
 
     def install(self):
         print("Installing GCC nano libraries")
+
+        subprocess.run("make install", shell=True, cwd=self.build_directory)
+        
         result = subprocess.run(
             "./gcc/gcc-cross -print-multi-lib",
             shell=True,
@@ -208,11 +233,10 @@ gcc-{version}.tar.xz".format(
                 shutil.copyfile(source_libsupcpp, target / "libsupc++_nano.a")
                 break
 
-        subprocess.run("make install", shell=True, cwd=self.build_directory)
 
 
-def get_recipe(output_directory, prefix):
-    return GccRecipe(output_directory, prefix)
+def get_recipe(output_directory, prefix, skip_verification):
+    return GccRecipe(output_directory, prefix, skip_verification)
 
 
 dependencies = ["newlib"]
