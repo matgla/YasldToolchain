@@ -32,14 +32,16 @@ is_build_recipe = True
 
 
 class GccRecipe(RecipeBase):
-    gcc_version = "master"
-    sha256 = "f2214c3bae925fbf5559b708c354130e98cda4e7fbcfb63043ce43757b675833"
+    gcc_version = "13.2.0"
+    sha256 = "e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da"
     target = "arm-none-eabi"
 
     def __init__(self, output_directory, prefix, skip_verification):
         super().__init__(
             name="gcc",
-            source="https://github.com/gcc-mirror/gcc/archive/refs/heads/master.zip",
+            source=https://ftp.gnu.org/gnu/gcc/gcc-{version}/gcc-{version}.tar.xz".format(
+                version=GccRecipe.gcc_version
+            ),
             output=output_directory,
             sha=GccRecipe.sha256,
             skip_verification=skip_verification
@@ -50,7 +52,7 @@ class GccRecipe(RecipeBase):
         self.env[
             "CFLAGS_FOR_TARGET"
         ] = "-g -Os -ffunction-sections -fdata-sections \
-"
+-msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
 
         self.env["CXXFLAGS_FOR_TARGET"] = self.env["CFLAGS_FOR_TARGET"]
 
@@ -89,6 +91,7 @@ class GccRecipe(RecipeBase):
                 "--libexecdir={prefix}/{target}/lib".format(
                     prefix=self.prefix, target=GccRecipe.target
                 ),
+                "--with-pic",
                 "--enable-languages=c,c++",
                 "--enable-plugins",
                 "--disable-decimal-float",
@@ -168,7 +171,7 @@ class GccRecipe(RecipeBase):
 
     def compile(self):
         result = subprocess.run(
-            'make -j6 INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
+            'make -j$(nproc) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
             shell=True,
             cwd=self.build_directory,
             env=self.env,
@@ -177,7 +180,7 @@ class GccRecipe(RecipeBase):
         assert result.returncode == 0
 
         result = subprocess.run(
-            'make -j6 INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
+            'make -j$(nproc) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"',
             shell=True,
             cwd=self.nano_build_directory,
             env=self.env_nano,
