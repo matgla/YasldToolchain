@@ -50,7 +50,7 @@ class NewlibRecipe(RecipeBase):
         self.env[
             "CFLAGS_FOR_TARGET"
         ] = "-g -Os -ffunction-sections -fdata-sections \
-"
+-msingle-pic-base -mno-pic-data-is-text-relative -fPIC"
 
         self.sources_root = (
             self.sources_directory
@@ -83,6 +83,7 @@ class NewlibRecipe(RecipeBase):
                 "--enable-newlib-global-atexit",
                 "--enable-newlib-nano-formatted-io",
                 "--disable-nls",
+                "--with-pic",
             ]
         )
 
@@ -108,6 +109,7 @@ class NewlibRecipe(RecipeBase):
                 "--enable-newlib-retargetable-locking",
                 "--disable-newlib-supplied-syscalls",
                 "--disable-nls",
+                "--with-pic",
             ]
         )
 
