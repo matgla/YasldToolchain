@@ -43,7 +43,7 @@ class GccRecipe(RecipeBase):
                 version=GccRecipe.gcc_version
             ),
             output=output_directory,
-            sha=GccRecipe.sha256,
+            sha=GccRecipe.sha256,minor
             skip_verification=skip_verification
         )
         self.prefix = prefix
